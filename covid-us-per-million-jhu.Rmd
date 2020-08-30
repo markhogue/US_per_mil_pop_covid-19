@@ -1,0 +1,207 @@
+---
+title: "kagro-covid-19"
+author: "Mark Hogue"
+date: 
+output: html_document
+---
+
+## Covid-19 Results by Population, US States
+### Covid-19 Data from John Hopkins University
+#### - JHU/CCSE repository
+### Population from US Census 2017 estimate
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+library(covid19.analytics)
+cases_ts_US <- covid19.data("ts-confirmed-US")
+death_ts_US <- covid19.data("ts-deaths-US") 
+library(magrittr)
+library(dplyr)
+library(tidyr)
+library(RCurl)
+library(ggplot2)
+library(tibble)
+library(readxl)
+library(knitr)
+library(kableExtra)
+```
+
+
+#### The most recent day in the dataset is: 
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# To just use latest data
+# Identify latest date:
+cat(names(cases_ts_US[ncol(cases_ts_US)]))
+```
+
+
+```{r echo = FALSE, message = FALSE}
+
+# obtain population data
+colNames <- c("state_ter", "census2010", "est_base", paste0("est_",2010:2019))
+usPopEst <- read_excel("c:/R_files/nst-est2019-01.xlsx",
+                       range="A10:M61",
+                       col_names = colNames)[c(1,13)]
+usPopEst$state_ter <- gsub("\\.","",usPopEst$state_ter)
+
+# Identify differential cases
+latest_cases <- cases_ts_US %>% 
+  select(c(1:2,
+    c((ncol(.) - 7) : ncol(.))))  #the most recent week
+
+names(latest_cases) <- c(names(cases_ts_US[1:2]), 
+          names(cases_ts_US[(ncol(cases_ts_US) - 7):ncol(cases_ts_US)]))               
+          
+new_cases <- data.frame(latest_cases[, 1:2],
+      latest_cases[, 4:10] - latest_cases[, 3:9])  
+
+names(new_cases) <- c(names(latest_cases[1:2]), 
+                       names(latest_cases[4:10]))
+
+# most recent day
+today_cases <- new_cases %>% 
+  group_by(Province_State) %>% 
+  select(-c(3:(ncol(.) - 1))) %>% #only the most recent
+  select(-1)  #drop "US"
+names(today_cases) <- c("state_ter", "latest") 
+```
+#### Most recent day cases:
+#### reverse order of cases per million
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+case_report <- today_cases %>%  
+  summarise(cases = sum(latest)) %>% 
+  right_join(., usPopEst) %>% 
+  filter(cases > 0) %>% 
+  mutate("cases_per_million" = cases / est_2019 * 1e6) %>% 
+  arrange(-cases_per_million) 
+  
+kbl(case_report[c(1, 2, 4)], 
+    digits = 1, 
+    row.names = TRUE) %>% 
+  kable_styling(full_width = FALSE)
+
+```
+
+#### Most recent day deaths:
+#### reverse order of deaths per million
+
+```{r echo = FALSE, message = FALSE}
+
+# obtain population data
+colNames <- c("state_ter", "census2010", "est_base", paste0("est_",2010:2019))
+usPopEst <- read_excel("c:/R_files/nst-est2019-01.xlsx",
+                       range="A10:M61",
+                       col_names = colNames)[c(1,13)]
+usPopEst$state_ter <- gsub("\\.","",usPopEst$state_ter)
+
+
+
+# Identify differential deaths
+latest_deaths <- death_ts_US %>% 
+  select(c(1:2,
+    c((ncol(.) - 7) : ncol(.))))  #the most recent week
+
+names(latest_deaths) <- c(names(death_ts_US[1:2]), 
+          names(death_ts_US[(ncol(death_ts_US) - 7):ncol(death_ts_US)]))               
+          
+new_deaths <- data.frame(latest_deaths[, 1:2],
+      latest_deaths[, 4:10] - latest_deaths[, 3:9])  
+
+names(new_deaths) <- c(names(latest_deaths[1:2]), 
+                       names(latest_deaths[4:10]))
+
+# most recent day
+today_deaths <- new_deaths %>% 
+  group_by(Province_State) %>% 
+  select(-c(3:(ncol(.) - 1))) %>% #only the most recent
+  select(-1)  #drop "US"
+
+names(today_deaths) <- c("state_ter", "latest") 
+
+case_report <- today_deaths %>%  
+  summarise(deaths = sum(latest)) %>% 
+  right_join(., usPopEst) %>% 
+  filter(deaths > 0) %>% 
+  mutate("deaths_per_million" = deaths / est_2019 * 1e6) %>% 
+  arrange(-deaths_per_million) 
+  
+kbl(case_report[c(1, 2, 4)], 
+    digits = 1, 
+    row.names = TRUE) %>% 
+  kable_styling(full_width = FALSE)
+
+```
+
+# Average for past week
+
+#### Most recent week cases:
+#### reverse order of cases per million
+
+```{r echo = FALSE, message = FALSE}
+
+# most recent week
+past_week_cases <- new_cases %>% 
+   select(-1)  #drop "US"
+
+names(past_week_cases) <- c("state_ter", 
+                            paste0("latest", "_", 6:0)) 
+
+case_report <- past_week_cases %>%  
+  mutate(case_sum = latest_0 +
+                        latest_1 +
+                        latest_2 +
+                        latest_3 +
+                        latest_4 +
+                        latest_5 +
+                        latest_6) %>% 
+  group_by(state_ter) %>% 
+  summarise(week_avg = sum(case_sum) / 7) %>% 
+  right_join(., usPopEst) %>% 
+  filter(week_avg > 0) %>% 
+  mutate("cases_per_million" = week_avg / est_2019 * 1e6) %>% 
+  arrange(-cases_per_million) 
+  
+kbl(case_report[c(1, 2, 4)], 
+    digits = 1, 
+    row.names = TRUE) %>% 
+  kable_styling(full_width = FALSE)
+
+```
+
+#### Most recent week deaths:
+#### reverse order of deaths per million
+
+```{r echo = FALSE, message = FALSE}
+
+# most recent week
+past_week_deaths <- new_deaths %>% 
+   select(-1)  #drop "US"
+
+names(past_week_deaths) <- c("state_ter", 
+                            paste0("latest", "_", 6:0)) 
+
+death_report <- past_week_deaths %>%  
+  mutate(death_sum = latest_0 +
+                        latest_1 +
+                        latest_2 +
+                        latest_3 +
+                        latest_4 +
+                        latest_5 +
+                        latest_6) %>% 
+  group_by(state_ter) %>% 
+  summarise(week_avg = sum(death_sum) / 7) %>% 
+  right_join(., usPopEst) %>% 
+  filter(week_avg > 0) %>% 
+  mutate("deaths_per_million" = week_avg / est_2019 * 1e6) %>% 
+  arrange(-deaths_per_million) 
+  
+kbl(death_report[c(1, 2, 4)], 
+    digits = 1, 
+    row.names = TRUE) %>% 
+  kable_styling(full_width = FALSE)
+```
