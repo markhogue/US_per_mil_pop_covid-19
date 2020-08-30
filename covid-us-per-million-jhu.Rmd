@@ -29,7 +29,6 @@ library(knitr)
 library(kableExtra)
 ```
 
-
 #### The most recent day in the dataset is: 
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
