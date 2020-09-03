@@ -6,3 +6,5 @@ To use, you first need the population data. For example:
 `popData <- "https://www2.census.gov/programs-surveys/popest/tables/2010-2019/state/totals/nst-est2019-01.xlsx"
 
 download.file(popData, "nst-est2019-01.xlsx",mode="wb")`
+
+Then add a column at left of data with two digit abbreviations for state or territory.
