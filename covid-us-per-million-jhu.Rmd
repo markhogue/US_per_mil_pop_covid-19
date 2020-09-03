@@ -1,8 +1,10 @@
 ---
 title: "kagro-covid-19"
 author: "Mark Hogue"
-date: 
-output: html_document
+date: "null"
+output:
+  html_document: default
+  word_document: default
 ---
 
 ## Covid-19 Results by Population, US States
@@ -14,7 +16,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r echo = FALSE, message = FALSE, warning = FALSE}
+```{r echo = FALSE, message = FALSE, warning = FALSE, include = FALSE}
 library(covid19.analytics)
 cases_ts_US <- covid19.data("ts-confirmed-US")
 death_ts_US <- covid19.data("ts-deaths-US") 
@@ -26,10 +28,10 @@ library(ggplot2)
 library(tibble)
 library(readxl)
 library(knitr)
-library(kableExtra)
 ```
 
-#### The most recent day in the dataset is: 
+
+#### The most recent day in the dataset is
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 # To just use latest data
@@ -41,10 +43,10 @@ cat(names(cases_ts_US[ncol(cases_ts_US)]))
 ```{r echo = FALSE, message = FALSE}
 
 # obtain population data
-colNames <- c("state_ter", "census2010", "est_base", paste0("est_",2010:2019))
+colNames <- c("st" ,"state_ter", "census2010", "est_base", paste0("est_",2010:2019))
 usPopEst <- read_excel("c:/R_files/nst-est2019-01.xlsx",
-                       range="A10:M61",
-                       col_names = colNames)[c(1,13)]
+                       range="A10:N61",
+                       col_names = colNames)[c(1, 2, 14)]
 usPopEst$state_ter <- gsub("\\.","",usPopEst$state_ter)
 
 # Identify differential cases
@@ -68,38 +70,30 @@ today_cases <- new_cases %>%
   select(-1)  #drop "US"
 names(today_cases) <- c("state_ter", "latest") 
 ```
-#### Most recent day cases:
-#### reverse order of cases per million
+#### Most recent day cases per million population
 
-```{r echo = FALSE, message = FALSE, warning = FALSE}
+```{r echo = FALSE, message = FALSE, warning = FALSE, comment = ""}
 case_report <- today_cases %>%  
   summarise(cases = sum(latest)) %>% 
   right_join(., usPopEst) %>% 
   filter(cases > 0) %>% 
-  mutate("cases_per_million" = cases / est_2019 * 1e6) %>% 
-  arrange(-cases_per_million) 
-  
-kbl(case_report[c(1, 2, 4)], 
-    digits = 1, 
-    row.names = TRUE) %>% 
-  kable_styling(full_width = FALSE)
+  mutate("per_1M" = cases / est_2019 * 1e6) %>% 
+  arrange(-per_1M) %>% 
+  mutate(ord = 1:length(per_1M))
 
+case_report <- case_report %>% 
+  select(c(ord, st, cases, per_1M)) %>% 
+  mutate(ord = paste0(as.character(ord), " ")) %>% 
+  mutate(st = paste0(st, " ")) %>% 
+  mutate(cases = paste0(as.character(cases), " ")) %>%
+  mutate(per_1M = format(per_1M, digits = 2))
+
+print.data.frame(case_report, row.names = FALSE)  
 ```
 
-#### Most recent day deaths:
-#### reverse order of deaths per million
+#### Most recent day deaths
 
-```{r echo = FALSE, message = FALSE}
-
-# obtain population data
-colNames <- c("state_ter", "census2010", "est_base", paste0("est_",2010:2019))
-usPopEst <- read_excel("c:/R_files/nst-est2019-01.xlsx",
-                       range="A10:M61",
-                       col_names = colNames)[c(1,13)]
-usPopEst$state_ter <- gsub("\\.","",usPopEst$state_ter)
-
-
-
+```{r echo = FALSE, message = FALSE, warning = FALSE, comment = ""}
 # Identify differential deaths
 latest_deaths <- death_ts_US %>% 
   select(c(1:2,
@@ -122,26 +116,30 @@ today_deaths <- new_deaths %>%
 
 names(today_deaths) <- c("state_ter", "latest") 
 
-case_report <- today_deaths %>%  
+death_report <- today_deaths %>%  
   summarise(deaths = sum(latest)) %>% 
   right_join(., usPopEst) %>% 
   filter(deaths > 0) %>% 
-  mutate("deaths_per_million" = deaths / est_2019 * 1e6) %>% 
-  arrange(-deaths_per_million) 
-  
-kbl(case_report[c(1, 2, 4)], 
-    digits = 1, 
-    row.names = TRUE) %>% 
-  kable_styling(full_width = FALSE)
+  mutate("per_1M" = deaths / est_2019 * 1e6) %>% 
+  arrange(-per_1M) %>% 
+  mutate(ord = 1:length(per_1M))
+
+death_report <- death_report %>% 
+  select(c(ord, st, deaths, per_1M)) %>% 
+  mutate(ord = paste0(as.character(ord), " ")) %>% 
+  mutate(st = paste0(st, " ")) %>% 
+  mutate(deaths = paste0(as.character(deaths), " ")) %>%
+  mutate(per_1M = format(per_1M, digits = 2))
+
+print.data.frame(death_report, row.names = FALSE) 
 
 ```
 
 # Average for past week
 
-#### Most recent week cases:
-#### reverse order of cases per million
+#### Most recent week average daily cases per million
 
-```{r echo = FALSE, message = FALSE}
+```{r echo = FALSE, message = FALSE, warning = FALSE, comment = ""}
 
 # most recent week
 past_week_cases <- new_cases %>% 
@@ -162,20 +160,23 @@ case_report <- past_week_cases %>%
   summarise(week_avg = sum(case_sum) / 7) %>% 
   right_join(., usPopEst) %>% 
   filter(week_avg > 0) %>% 
-  mutate("cases_per_million" = week_avg / est_2019 * 1e6) %>% 
-  arrange(-cases_per_million) 
+  mutate("per_1M" = week_avg / est_2019 * 1e6) %>% 
+  arrange(-per_1M) %>% 
+  mutate(ord = 1:length(per_1M))
   
-kbl(case_report[c(1, 2, 4)], 
-    digits = 1, 
-    row.names = TRUE) %>% 
-  kable_styling(full_width = FALSE)
+case_report <- case_report %>% 
+  select(c(ord, st, week_avg, per_1M)) %>% 
+  mutate(ord = paste0(as.character(ord), " ")) %>% 
+  mutate(st = paste0(st, " ")) %>% 
+  mutate(week_avg = paste0(as.character(format(week_avg, digits = 2)), " ")) %>%
+  mutate(per_1M = format(per_1M, digits = 2))
 
+print.data.frame(case_report, row.names = FALSE) 
 ```
 
-#### Most recent week deaths:
-#### reverse order of deaths per million
+#### Most recent week average daily deaths per million
 
-```{r echo = FALSE, message = FALSE}
+```{r echo = FALSE, message = FALSE, warning = FALSE, comment = ""}
 
 # most recent week
 past_week_deaths <- new_deaths %>% 
@@ -196,11 +197,17 @@ death_report <- past_week_deaths %>%
   summarise(week_avg = sum(death_sum) / 7) %>% 
   right_join(., usPopEst) %>% 
   filter(week_avg > 0) %>% 
-  mutate("deaths_per_million" = week_avg / est_2019 * 1e6) %>% 
-  arrange(-deaths_per_million) 
+  mutate("per_1M" = week_avg / est_2019 * 1e6) %>% 
+  arrange(-per_1M) %>% 
+  mutate(ord = 1:length(per_1M))
   
-kbl(death_report[c(1, 2, 4)], 
-    digits = 1, 
-    row.names = TRUE) %>% 
-  kable_styling(full_width = FALSE)
+death_report <- death_report %>% 
+  select(c(ord, st, week_avg, per_1M)) %>% 
+  mutate(ord = paste0(as.character(ord), " ")) %>% 
+  mutate(st = paste0(st, " ")) %>% 
+  mutate(week_avg = paste0(as.character(format(week_avg, digits = 2)), " ")) %>%
+  mutate(per_1M = format(per_1M, digits = 2))
+
+print.data.frame(death_report, row.names = FALSE) 
+
 ```
